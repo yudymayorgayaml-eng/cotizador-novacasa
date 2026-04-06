@@ -68,33 +68,32 @@ def create_pdf(datos, items, desc_p):
     pdf.footer_cierre()
     return pdf.output(dest='S').encode('latin-1')
 
-# --- LÓGICA DE CARGA DE ARCHIVO ---
+# --- LÓGICA DE INTERFAZ ---
 st.set_page_config(page_title="Novacasa Pro", page_icon="🏠")
-st.title("🏠 Novacasa: Cotizador con Memoria")
+st.title("🏠 Novacasa: Generador de Cotizaciones")
 
-# 1. Botón para cargar datos existentes
-uploaded_file = st.file_uploader("📂 Cargar una cotización anterior para editar", type=['json'])
+uploaded_file = st.file_uploader("📂 Cargar una cotización anterior (.json)", type=['json'])
 saved_data = {}
 if uploaded_file is not None:
     saved_data = json.load(uploaded_file)
-    st.success("¡Datos cargados! Puedes editarlos abajo.")
 
 with st.form("form_principal"):
     col1, col2 = st.columns(2)
-    nombre = col1.text_input("Nombre Cliente", saved_data.get('nombre', "Agrupación Navarra"))
-    atencion = col2.text_input("Atención a", saved_data.get('atencion', "Henry Calceto"))
+    nombre = col1.text_input("Nombre Cliente", saved_data.get('nombre', ""))
+    atencion = col2.text_input("Atención a", saved_data.get('atencion', ""))
     id_cliente = st.text_input("NIT / Cédula", saved_data.get('id_cliente', ""))
     
     col3, col4, col5 = st.columns(3)
-    ciudad = col3.text_input("Ciudad", saved_data.get('ciudad', "Bogotá"))
+    ciudad = col3.text_input("Ciudad", saved_data.get('ciudad', ""))
     tel = col4.text_input("Teléfono", saved_data.get('tel', ""))
     direccion = st.text_input("Dirección", saved_data.get('direccion', ""))
     
+    # Fechas por defecto: hoy y +30 días si no hay datos cargados
     f_emision = st.date_input("Fecha Emisión", datetime.strptime(saved_data.get('f_emision', str(datetime.now().date())), '%Y-%m-%d'))
     f_vence = st.date_input("Fecha Vencimiento", datetime.strptime(saved_data.get('f_vence', str((datetime.now() + timedelta(days=30)).date())), '%Y-%m-%d'))
-    pago = st.selectbox("Pago", ["A CONVENIR", "CONTADO", "50% ANTICIPO"], index=0)
+    pago = st.selectbox("Pago", ["A CONVENIR", "CONTADO", "50% ANTICIPO"])
     
-    st.write("### Zonas")
+    st.write("---")
     n_zonas = st.number_input("Número de zonas", 1, 10, len(saved_data.get('zonas_lista', [1])))
     zonas_lista = []
     cols_z = st.columns(2)
@@ -103,7 +102,7 @@ with st.form("form_principal"):
         z_nom = cols_z[i % 2].text_input(f"Zona {i+1}", value=val_z, key=f"z_{i}")
         if z_nom: zonas_lista.append(z_nom)
     
-    st.write("### Servicios")
+    st.write("---")
     n_items = st.number_input("Número de ítems", 1, 15, len(saved_data.get('items', [1])))
     servicios_lista = []
     for i in range(int(n_items)):
