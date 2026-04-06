@@ -2,6 +2,7 @@ import streamlit as st
 from fpdf import FPDF
 from datetime import datetime, timedelta
 import os
+import json
 
 class PDF(FPDF):
     def header(self):
@@ -15,10 +16,13 @@ class PDF(FPDF):
             self.set_text_color(40, 40, 40)
             self.set_xy(10, 15)
             self.cell(0, 10, 'NOVACASA', ln=True)
+            self.set_font('Arial', '', 9)
+            self.set_text_color(150, 0, 0)
+            self.cell(0, -2, 'remodelación::reparaciones locativas', ln=True)
         self.ln(25)
 
     def footer_cierre(self):
-        self.set_y(-60)
+        self.set_y(-65)
         self.set_fill_color(40, 40, 40)
         self.set_text_color(255, 255, 255)
         self.set_font('Arial', 'B', 10)
@@ -36,98 +40,98 @@ def create_pdf(datos, items, desc_p):
     pdf.add_page()
     pdf.set_draw_color(218, 37, 29)
     pdf.set_line_width(0.4)
-
-    # Bloque Cliente y Fechas
-    pdf.set_fill_color(40, 40, 40)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font('Arial', 'B', 9)
-    pdf.set_xy(10, 45)
-    pdf.cell(110, 7, "CLIENTE", 1, 1, 'L', True)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font('Arial', '', 8)
-    pdf.rect(10, 52, 110, 22)
-    pdf.set_xy(12, 54)
-    pdf.multi_cell(55, 4.5, f"NOMBRE: {datos['nombre']}\nATENCIÓN: {datos['atencion']}\nDIRECCIÓN: {datos['direccion']}")
-    pdf.set_xy(67, 54)
-    pdf.multi_cell(50, 4.5, f"NIT / CC: {datos['id_cliente']}\nCIUDAD: {datos['ciudad']}\nTEL: {datos['tel']}")
-
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_xy(125, 45)
-    pdf.cell(37, 7, "FECHA EMISIÓN", 1, 0, 'C', True)
-    pdf.cell(37, 7, "FECHA VENCE", 1, 1, 'C', True)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_xy(125, 52)
-    pdf.cell(37, 10, datos['f_emision'].strftime("%d/%m/%Y"), 1, 0, 'C')
-    pdf.cell(37, 10, datos['f_vence'].strftime("%d/%m/%Y"), 1, 1, 'C')
+    # Bloque cliente
+    pdf.set_fill_color(40, 40, 40); pdf.set_text_color(255, 255, 255); pdf.set_font('Arial', 'B', 9)
+    pdf.set_xy(10, 45); pdf.cell(110, 7, "CLIENTE", 1, 1, 'L', True)
+    pdf.set_text_color(0, 0, 0); pdf.set_font('Arial', '', 8); pdf.rect(10, 52, 110, 22)
+    pdf.set_xy(12, 54); pdf.multi_cell(55, 4.5, f"NOMBRE: {datos['nombre']}\nATENCIÓN: {datos['atencion']}\nDIRECCIÓN: {datos['direccion']}")
+    pdf.set_xy(67, 54); pdf.multi_cell(50, 4.5, f"NIT / CÉDULA: {datos['id_cliente']}\nCIUDAD: {datos['ciudad']}\nTEL: {datos['tel']}")
+    # Bloque fechas
+    pdf.set_text_color(255, 255, 255); pdf.set_xy(125, 45); pdf.cell(37, 7, "FECHA EMISIÓN", 1, 0, 'C', True); pdf.cell(37, 7, "FECHA VENCE", 1, 1, 'C', True)
+    pdf.set_text_color(0, 0, 0); pdf.set_xy(125, 52); pdf.cell(37, 12, datetime.strptime(datos['f_emision'], '%Y-%m-%d').strftime("%d/%m/%Y"), 1, 0, 'C'); pdf.cell(37, 12, datetime.strptime(datos['f_vence'], '%Y-%m-%d').strftime("%d/%m/%Y"), 1, 1, 'C')
+    # Tabla
+    pdf.ln(25)
+    pdf.set_fill_color(40, 40, 40); pdf.set_text_color(255, 255, 255); pdf.cell(30, 8, "ZONA", 1, 0, 'C', True); pdf.cell(120, 8, "DESCRIPCIÓN DEL SERVICIO", 1, 0, 'C', True); pdf.cell(40, 8, "VALOR", 1, 1, 'C', True)
+    pdf.set_text_color(0, 0, 0); pdf.set_font('Arial', '', 9)
+    subtotal = 0
+    zona_completa = ", ".join(datos['zonas_lista'])
+    for i, item in enumerate(items):
+        z = zona_completa if i == 0 else ""
+        pdf.cell(30, 9, z, 1, 0, 'C'); pdf.cell(120, 9, item['desc'], 1, 0, 'L'); pdf.cell(40, 9, f"$ {item['val']:,.2f}", 1, 1, 'R')
+        subtotal += item['val']
     
-    pdf.set_xy(125, 64)
-    pdf.set_fill_color(40, 40, 40)
-    pdf.set_text_color(255, 255, 255)
-    pdf.cell(74, 5, "CONDICIONES DE PAGO", 1, 1, 'C', True)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_xy(125, 69)
-    pdf.cell(74, 5, datos['condiciones'].upper(), 1, 1, 'C')
-
-    pdf.ln(12)
-    # Tabla con columna de ZONA por cada ítem
-    pdf.set_fill_color(40, 40, 40)
-    pdf.set_text_color(255, 255, 255)
-    pdf.cell(35, 8, "ZONA", 1, 0, 'C', True)
-    pdf.cell(115, 8, "DESCRIPCIÓN DEL SERVICIO", 1, 0, 'C', True)
-    pdf.cell(40, 8, "VALOR", 1, 1, 'C', True)
-
-    pdf.set_text_color(0, 0, 0)
-    subtotal = sum(i['val'] for i in items)
-    for item in items:
-        pdf.cell(35, 9, item['zona'], 1, 0, 'C')
-        pdf.cell(115, 9, item['desc'], 1, 0, 'L')
-        pdf.cell(40, 9, f"$ {item['val']:,.2f}", 1, 1, 'R')
-
-    descuento = subtotal * (desc_p / 100)
-    total_neto = subtotal - descuento
+    monto_desc = subtotal * (desc_p / 100)
+    total_f = subtotal - monto_desc
     if desc_p > 0:
-        pdf.cell(150, 8, f"DESCUENTO ({desc_p}%)", 1, 0, 'R')
-        pdf.cell(40, 8, f"- $ {descuento:,.2f}", 1, 1, 'R')
-    pdf.set_fill_color(230, 230, 230)
-    pdf.set_font('Arial', 'B', 10)
-    pdf.cell(150, 10, "TOTAL A PAGAR", 1, 0, 'R', True)
-    pdf.cell(40, 10, f"$ {total_neto:,.2f}", 1, 1, 'R', True)
-
+        pdf.cell(150, 8, f"DESCUENTO ({desc_p}%)", 1, 0, 'R'); pdf.cell(40, 8, f"- $ {monto_desc:,.2f}", 1, 1, 'R')
+    pdf.set_fill_color(230, 230, 230); pdf.set_font('Arial', 'B', 10); pdf.cell(150, 10, "TOTAL A PAGAR", 1, 0, 'R', True); pdf.cell(40, 10, f"$ {total_f:,.2f}", 1, 1, 'R', True)
     pdf.footer_cierre()
     return pdf.output(dest='S').encode('latin-1')
 
-# --- INTERFAZ MULTI-ZONA ---
-st.title("🏠 Novacasa: Cotización por Zonas")
-with st.form("form_zonas"):
-    c1, c2 = st.columns(2)
-    nombre = c1.text_input("Cliente", "Agrupación Navarra")
-    atencion = c2.text_input("Atención a", "Henry Calceto")
-    id_cliente = st.text_input("NIT / Cédula")
+# --- LÓGICA DE CARGA DE ARCHIVO ---
+st.set_page_config(page_title="Novacasa Pro", page_icon="🏠")
+st.title("🏠 Novacasa: Cotizador con Memoria")
+
+# 1. Botón para cargar datos existentes
+uploaded_file = st.file_uploader("📂 Cargar una cotización anterior para editar", type=['json'])
+saved_data = {}
+if uploaded_file is not None:
+    saved_data = json.load(uploaded_file)
+    st.success("¡Datos cargados! Puedes editarlos abajo.")
+
+with st.form("form_principal"):
+    col1, col2 = st.columns(2)
+    nombre = col1.text_input("Nombre Cliente", saved_data.get('nombre', "Agrupación Navarra"))
+    atencion = col2.text_input("Atención a", saved_data.get('atencion', "Henry Calceto"))
+    id_cliente = st.text_input("NIT / Cédula", saved_data.get('id_cliente', ""))
     
-    c3, c4 = st.columns(2)
-    ciudad = c3.text_input("Ciudad", "Bogotá")
-    tel = c4.text_input("Teléfono")
-    direccion = st.text_input("Dirección")
+    col3, col4, col5 = st.columns(3)
+    ciudad = col3.text_input("Ciudad", saved_data.get('ciudad', "Bogotá"))
+    tel = col4.text_input("Teléfono", saved_data.get('tel', ""))
+    direccion = st.text_input("Dirección", saved_data.get('direccion', ""))
     
-    f_emision = st.date_input("Emisión", datetime.now())
-    f_vence = st.date_input("Vencimiento", datetime.now() + timedelta(days=30))
-    cond_pago = st.selectbox("Pago", ["A CONVENIR", "CONTADO", "50% ANTICIPO"])
+    f_emision = st.date_input("Fecha Emisión", datetime.strptime(saved_data.get('f_emision', str(datetime.now().date())), '%Y-%m-%d'))
+    f_vence = st.date_input("Fecha Vencimiento", datetime.strptime(saved_data.get('f_vence', str((datetime.now() + timedelta(days=30)).date())), '%Y-%m-%d'))
+    pago = st.selectbox("Pago", ["A CONVENIR", "CONTADO", "50% ANTICIPO"], index=0)
     
-    st.write("---")
-    num = st.number_input("¿Cuántos ítems totales?", 1, 15, 1)
-    servs = []
-    for i in range(num):
-        st.write(f"**Ítem {i+1}**")
-        ca, cb, cc = st.columns([1, 2, 1])
-        z = ca.text_input("Zona", placeholder="Baño", key=f"z{i}")
-        d = cb.text_input("Descripción", key=f"d{i}")
-        v = cc.number_input("Valor", key=f"v{i}", format="%.2f")
-        servs.append({'zona': z, 'desc': d, 'val': v})
+    st.write("### Zonas")
+    n_zonas = st.number_input("Número de zonas", 1, 10, len(saved_data.get('zonas_lista', [1])))
+    zonas_lista = []
+    cols_z = st.columns(2)
+    for i in range(int(n_zonas)):
+        val_z = saved_data.get('zonas_lista', [""])[i] if i < len(saved_data.get('zonas_lista', [])) else ""
+        z_nom = cols_z[i % 2].text_input(f"Zona {i+1}", value=val_z, key=f"z_{i}")
+        if z_nom: zonas_lista.append(z_nom)
     
-    desc_val = st.slider("Descuento %", 0, 100, 0)
-    if st.form_submit_button("GENERAR PDF POR ZONAS"):
-        d_pdf = {'nombre': nombre, 'atencion': atencion, 'id_cliente': id_cliente,
-                 'ciudad': ciudad, 'tel': tel, 'direccion': direccion,
-                 'f_emision': f_emision, 'f_vence': f_v, 'condiciones': cond_pago}
-        pdf_f = create_pdf(d_pdf, servs, desc_val)
-        st.download_button("📥 DESCARGAR", pdf_f, f"Coti_Zonas_{nombre}.pdf")
+    st.write("### Servicios")
+    n_items = st.number_input("Número de ítems", 1, 15, len(saved_data.get('items', [1])))
+    servicios_lista = []
+    for i in range(int(n_items)):
+        ca, cb = st.columns([3, 1])
+        val_d = saved_data.get('items', [])[i]['desc'] if i < len(saved_data.get('items', [])) else ""
+        val_v = saved_data.get('items', [])[i]['val'] if i < len(saved_data.get('items', [])) else 0.0
+        d = ca.text_input(f"Descripción {i+1}", value=val_d, key=f"d_{i}")
+        v = cb.number_input(f"Valor {i+1}", value=float(val_v), key=f"v_{i}")
+        servicios_lista.append({'desc': d, 'val': v})
+    
+    desc_p = st.slider("Descuento %", 0, 100, saved_data.get('desc_p', 0))
+    
+    col_btn1, col_btn2 = st.columns(2)
+    btn_pdf = col_btn1.form_submit_button("🚀 GENERAR PDF")
+    btn_save = col_btn2.form_submit_button("💾 GUARDAR BORRADOR")
+
+datos_finales = {
+    'nombre': nombre, 'atencion': atencion, 'id_cliente': id_cliente,
+    'ciudad': ciudad, 'tel': tel, 'direccion': direccion,
+    'f_emision': str(f_emision), 'f_vence': str(f_vence), 
+    'condiciones': pago, 'zonas_lista': zonas_lista, 
+    'items': servicios_lista, 'desc_p': desc_p
+}
+
+if btn_pdf:
+    pdf_bytes = create_pdf(datos_finales, servicios_lista, desc_p)
+    st.download_button("📥 DESCARGAR PDF", pdf_bytes, f"Coti_{nombre}.pdf")
+
+if btn_save:
+    json_string = json.dumps(datos_finales)
+    st.download_button("💾 DESCARGAR BORRADOR (.json)", json_string, f"Datos_{nombre}.json", "application/json")
